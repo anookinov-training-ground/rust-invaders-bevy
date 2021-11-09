@@ -2,7 +2,7 @@
 
 use std::default;
 
-use bevy::{prelude::*, transform, window};
+use bevy::{ecs::query, prelude::*, transform, window};
 
 const PLAYER_SPRITE: &str = "player_a_01.png";
 const LASER_SPRITE: &str = "laser_a_01.png";
@@ -50,6 +50,7 @@ fn main() {
         )
         .add_system(player_movement.system())
         .add_system(player_fire.system())
+        .add_system(laser_movement.system())
         .run();
 }
 
@@ -132,6 +133,20 @@ fn player_fire(
                 })
                 .insert(Laser)
                 .insert(Speed::default());
+        }
+    }
+}
+
+fn laser_movement(
+    mut commands: Commands,
+    win_size: Res<WinSize>,
+    mut query: Query<(Entity, &Speed, &mut Transform, With<Laser>)>,
+) {
+    for (laser_entity, speed, mut laser_tf, _) in query.iter_mut() {
+        let translation = &mut laser_tf.translation;
+        translation.y += speed.0 * TIME_STEP;
+        if translation.y > win_size.h {
+            commands.entity(laser_entity).despawn();
         }
     }
 }
