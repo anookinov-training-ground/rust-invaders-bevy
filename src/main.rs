@@ -22,6 +22,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut windows: ResMut<Windows>,
 ) {
@@ -34,8 +35,7 @@ fn setup(
 
     // spawn a sprite
     commands.spawn_bundle(SpriteBundle {
-        material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
-        sprite: Sprite::new(Vec2::new(200.0, 100.0)),
+        material: materials.add(asset_server.load(PLAYER_SPRITE).into()),
         ..Default::default()
     });
 }
