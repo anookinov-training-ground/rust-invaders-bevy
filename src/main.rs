@@ -5,13 +5,15 @@ use std::default;
 use bevy::{prelude::*, transform, window};
 
 const PLAYER_SPRITE: &str = "player_a_01.png";
+const LASER_SPRITE: &str = "laser_a_01.png";
 const TIME_STEP: f32 = 1. / 60.;
 
 // Entity, Component, System, Resource
 
 // region: Resouorces
 pub struct Materials {
-    player_materials: Handle<ColorMaterial>,
+    player: Handle<ColorMaterial>,
+    laser: Handle<ColorMaterial>,
 }
 struct WinSize {
     w: f32,
@@ -21,8 +23,10 @@ struct WinSize {
 
 // region: Components
 struct Player;
-struct PlayerSpeed(f32);
-impl Default for PlayerSpeed {
+struct Laser;
+
+struct Speed(f32);
+impl Default for Speed {
     fn default() -> Self {
         Self(500.)
     }
@@ -45,6 +49,7 @@ fn main() {
             SystemStage::single(player_spawn.system()),
         )
         .add_system(player_movement.system())
+        .add_system(player_fire.system())
         .run();
 }
 
@@ -61,7 +66,8 @@ fn setup(
 
     // create the main resources
     commands.insert_resource(Materials {
-        player_materials: materials.add(asset_server.load(PLAYER_SPRITE).into()),
+        player: materials.add(asset_server.load(PLAYER_SPRITE).into()),
+        laser: materials.add(asset_server.load(LASER_SPRITE).into()),
     });
     commands.insert_resource(WinSize {
         w: window.width(),
@@ -77,7 +83,7 @@ fn player_spawn(mut commands: Commands, materials: Res<Materials>, win_size: Res
     let bottom = -win_size.h / 2.;
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.player_materials.clone(),
+            material: materials.player.clone(),
             transform: Transform {
                 translation: Vec3::new(0., bottom + 75. / 4. + 5., 10.),
                 scale: Vec3::new(0.5, 0.5, 1.),
@@ -86,12 +92,12 @@ fn player_spawn(mut commands: Commands, materials: Res<Materials>, win_size: Res
             ..Default::default()
         })
         .insert(Player)
-        .insert(PlayerSpeed::default());
+        .insert(Speed::default());
 }
 
 fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&PlayerSpeed, &mut Transform, With<Player>)>,
+    mut query: Query<(&Speed, &mut Transform, With<Player>)>,
 ) {
     if let Ok((speed, mut transform, _)) = query.single_mut() {
         let dir = if keyboard_input.pressed(KeyCode::Left) {
@@ -102,5 +108,30 @@ fn player_movement(
             0.
         };
         transform.translation.x += dir * speed.0 * TIME_STEP;
+    }
+}
+
+fn player_fire(
+    mut commands: Commands,
+    kb: Res<Input<KeyCode>>,
+    materials: Res<Materials>,
+    mut query: Query<(&Transform, With<Player>)>,
+) {
+    if let Ok((player_tf, _)) = query.single_mut() {
+        if kb.pressed(KeyCode::Space) {
+            let x = player_tf.translation.x;
+            let y = player_tf.translation.y;
+            commands
+                .spawn_bundle(SpriteBundle {
+                    material: materials.laser.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(x, y, 0.),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(Laser)
+                .insert(Speed::default());
+        }
     }
 }
