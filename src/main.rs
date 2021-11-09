@@ -23,6 +23,7 @@ struct WinSize {
 
 // region: Components
 struct Player;
+struct PlayerReadyFire(bool);
 struct Laser;
 
 struct Speed(f32);
@@ -93,6 +94,7 @@ fn player_spawn(mut commands: Commands, materials: Res<Materials>, win_size: Res
             ..Default::default()
         })
         .insert(Player)
+        .insert(PlayerReadyFire(true))
         .insert(Speed::default());
 }
 
@@ -116,10 +118,10 @@ fn player_fire(
     mut commands: Commands,
     kb: Res<Input<KeyCode>>,
     materials: Res<Materials>,
-    mut query: Query<(&Transform, With<Player>)>,
+    mut query: Query<(&Transform, &mut PlayerReadyFire, With<Player>)>,
 ) {
-    if let Ok((player_tf, _)) = query.single_mut() {
-        if kb.pressed(KeyCode::Space) {
+    if let Ok((player_tf, mut ready_fire, _)) = query.single_mut() {
+        if ready_fire.0 && kb.pressed(KeyCode::Space) {
             let x = player_tf.translation.x;
             let y = player_tf.translation.y;
             commands
@@ -133,6 +135,11 @@ fn player_fire(
                 })
                 .insert(Laser)
                 .insert(Speed::default());
+            ready_fire.0 = false;
+        }
+
+        if kb.just_released(KeyCode::Space) {
+            ready_fire.0 = true;
         }
     }
 }
