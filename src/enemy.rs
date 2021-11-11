@@ -1,7 +1,10 @@
 use bevy::{core::FixedTimestep, prelude::*};
 use rand::{thread_rng, Rng};
 
-use crate::{ActiveEnemies, Enemy, FromEnemy, Laser, Materials, Speed, WinSize, SCALE, TIME_STEP};
+use crate::{
+    ActiveEnemies, Enemy, FromEnemy, Laser, Materials, Speed, WinSize, MAX_ENEMIES, SCALE,
+    TIME_STEP,
+};
 
 pub struct EnemyPlugin;
 
@@ -27,7 +30,7 @@ fn enemy_spawn(
     win_size: Res<WinSize>,
     materials: Res<Materials>,
 ) {
-    if active_enemies.0 < 1 {
+    if active_enemies.0 < MAX_ENEMIES {
         // compute the random position
         let mut rng = thread_rng();
         let w_span = win_size.w / 2. - 100.;

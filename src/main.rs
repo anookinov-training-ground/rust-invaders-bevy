@@ -3,6 +3,8 @@
 mod enemy;
 mod player;
 
+use std::collections::HashSet;
+
 use bevy::{prelude::*, sprite::collide_aabb::collide};
 use enemy::EnemyPlugin;
 use player::PlayerPlugin;
@@ -14,6 +16,8 @@ const ENEMY_LASER_SPRITE: &str = "laser_b_01.png";
 const EXPLOSION_SHEET: &str = "explo_a_sheet.png";
 const SCALE: f32 = 0.5;
 const TIME_STEP: f32 = 1. / 60.;
+const MAX_ENEMIES: u32 = 1;
+const PLAYER_RESPAWN_DELAY: f64 = 2.;
 
 // Entity, Component, System, Resource
 
@@ -31,6 +35,28 @@ struct WinSize {
     h: f32,
 }
 struct ActiveEnemies(u32);
+struct PlayerState {
+    on: bool,
+    last_shot: f64,
+}
+impl Default for PlayerState {
+    fn default() -> Self {
+        Self {
+            on: false,
+            last_shot: 0.,
+        }
+    }
+}
+impl PlayerState {
+    fn shot(&mut self, time: f64) {
+        self.on = false;
+        self.last_shot = time;
+    }
+    fn spawned(&mut self) {
+        self.on = true;
+        self.last_shot = 0.;
+    }
+}
 // endregion: Resources
 
 // region: Components
@@ -109,6 +135,8 @@ fn player_laser_hit_enemy(
     mut enemy_query: Query<(Entity, &Transform, &Sprite, With<Enemy>)>,
     mut active_enemies: ResMut<ActiveEnemies>,
 ) {
+    let mut enemies_blasted: HashSet<Entity> = HashSet::new();
+
     for (laser_entity, laser_tf, laser_sprite, _) in laser_query.iter_mut() {
         for (enemy_entity, enemy_tf, enemy_sprite, _) in enemy_query.iter_mut() {
             let laser_scale = Vec2::from(laser_tf.scale);
@@ -121,17 +149,21 @@ fn player_laser_hit_enemy(
             );
 
             if let Some(_) = collision {
-                // remove the enemy
-                commands.entity(enemy_entity).despawn();
-                active_enemies.0 -= 1;
+                if enemies_blasted.get(&enemy_entity).is_none() {
+                    // remove the enemy
+                    commands.entity(enemy_entity).despawn();
+                    active_enemies.0 -= 1;
+
+                    // spawn explosion to spawn
+                    commands
+                        .spawn()
+                        .insert(ExplosionToSpawn(enemy_tf.translation.clone()));
+
+                    enemies_blasted.insert(enemy_entity);
+                }
 
                 // remove the laser
                 commands.entity(laser_entity).despawn();
-
-                // spawn explosion to spawn
-                commands
-                    .spawn()
-                    .insert(ExplosionToSpawn(enemy_tf.translation.clone()));
             }
         }
     }
@@ -139,6 +171,8 @@ fn player_laser_hit_enemy(
 
 fn enemy_laser_hit_player(
     mut commands: Commands,
+    mut player_state: ResMut<PlayerState>,
+    time: Res<Time>,
     laser_query: Query<(Entity, &Transform, &Sprite), (With<Laser>, With<FromEnemy>)>,
     player_query: Query<(Entity, &Transform, &Sprite), With<Player>>,
 ) {
@@ -158,6 +192,7 @@ fn enemy_laser_hit_player(
             if let Some(_) = collision {
                 // remove the player
                 commands.entity(player_entity).despawn();
+                player_state.shot(time.seconds_since_startup());
                 // remove the laser
                 commands.entity(laser_entity).despawn();
                 // spawn the ExplosionToSpawn entity
